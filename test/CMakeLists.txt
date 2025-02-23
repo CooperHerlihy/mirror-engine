@@ -1,7 +1,7 @@
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.h" "src/*.vert" "src/*.frag")
 add_executable(Test ${SOURCES})
 
-target_include_directories(Test PUBLIC src ${CMAKE_SOURCE_DIR}/vendor)
+target_include_directories(Test PUBLIC src)
 target_link_libraries(Test PUBLIC Mirror)
 
 add_custom_command(TARGET Test POST_BUILD

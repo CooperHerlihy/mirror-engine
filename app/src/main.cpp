@@ -1,13 +1,31 @@
 #include <print>
 
-#include "mirror.h"
-
 #include <SDL3/SDL.h>
 
-int main() {
-	SDL_Init(SDL_INIT_VIDEO);
-	auto window = SDL_CreateWindow("Mirror", 1920, 1080, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+#include "mirror.h"
 
-	SDL_DestroyWindow(window);
-	SDL_Quit();
+int main() {
+	if (!SDL_SetAppMetadata("Mirror App", "1.0.0", nullptr)) std::terminate();
+	if (!SDL_Init(SDL_INIT_VIDEO)) std::terminate();
+
+	Mirror::Mirror engine{ { 1920, 1080 }, "Mirror App" };
+
+	bool running = true;
+	while (running) {
+
+		// Handle input
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_EVENT_QUIT:
+				running = false;
+				break;
+			}
+		}
+
+		// Update game state
+
+		// Update engine
+		engine.update();
+	}
 }
