@@ -3,15 +3,15 @@
 namespace Mirror::Reflect {
 
 void SpriteRenderer::cmdRender(const VkCommandBuffer cmd, const VkDescriptorSet vp_set) noexcept {
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	vkCmdBindIndexBuffer(cmd, index_buffer.handle, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+	vkCmdBindIndexBuffer(cmd, index_buffer.handle(), 0, VK_INDEX_TYPE_UINT16);
 
 	for (auto& texture : textures) {
 		VkDescriptorSet set_arr[] = { vp_set, texture.set };
-		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, std::size(set_arr), set_arr, 0, nullptr);
+		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout.handle(), 0, std::size(set_arr), set_arr, 0, nullptr);
 
 		for (auto& sprite : texture.sprite_queue) {
-			vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Sprite), &sprite);
+			vkCmdPushConstants(cmd, pipeline.layout.handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Sprite), &sprite);
 			vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 		}
 
@@ -31,8 +31,8 @@ SpriteRenderer::TextureHandle SpriteRenderer::loadTexture(const std::string_view
 	});
 	image.writeDeviceLocal(texture.pixels, texture_extent, 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	VkDescriptorSet set = descriptor_pool.allocateSet((usize)0);
-	Vk::writeDescriptorSetImage(set, 0, sampler, image.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorSet set = descriptor_pool.allocateSet();
+	Vk::writeDescriptorSetImage(set, 0, sampler, image.view.handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	textures.emplace_back(std::move(image), set);
 	return textures.size() - 1;

@@ -42,14 +42,14 @@ struct SpriteRenderer {
 		pipeline{ Vk::Pipeline::createGraphics({
 			.vertex_shader = "../../shaders/sprite.vert.spv",
 			.fragment_shader =  "../../shaders/sprite.frag.spv",
-			.descriptor_layouts = std::array{ vp_set_layout, descriptor_pool.layouts[0] },
+			.descriptor_layouts = std::array{ vp_set_layout, descriptor_pool.layouts[0].handle() },
 			.push_constant = VkPushConstantRange{
 				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
 				.offset = 0,
 				.size = sizeof(Sprite),
 			},
 			.render_target = {
-				.color_format = Vk::Surface::Format.format,
+				.color_format = Vk::SurfaceFormat.format,
 			},
 		}) }
 	{

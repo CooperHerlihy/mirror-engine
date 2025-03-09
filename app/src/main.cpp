@@ -38,7 +38,7 @@ int main() {
 	Input movement;
 
 	auto& renderer = engine.renderer;
-	renderer.setProjection(Mirror::Cameraf::perspective(0.01, 100, 1920.0f / 1080.0f, 3.14149f / 4.0f));
+	renderer.setProjection(Mirror::Cameraf::perspective(0.01f, 100.0f, 1920.0f / 1080.0f, 3.14149f / 4.0f));
 
 	auto cat_texture = renderer.loadSpriteTexture("../../assets/cat.png");
 	Mirror::Transform3Df cat_transform;
@@ -141,7 +141,7 @@ int main() {
 			(f32)(movement.get(Input::Direction::Forward) - movement.get(Input::Direction::Back)),
 		};
 		if (velocity.x != 0 || velocity.y != 0 || velocity.z != 0) {
-			renderer.camera.move(Mirror::Vec3f{ velocity.x, velocity.y, velocity.z }.normalized(), cam_speed * delta);
+			renderer.camera.move(Mirror::Vec3f{ velocity.x, velocity.y, velocity.z }.normalized(), cam_speed * static_cast<f32>(delta));
 		}
 
 		renderer.renderSprite(cat_texture, { cat_transform.matrix(), cat_tex_coords });

@@ -20,8 +20,8 @@ struct Renderer {
 	};
 
 	SDL_Window* window;
-	Vk::Surface surface = Vk::Surface::create(window);
-	Vk::Swapchain swapchain = Vk::Swapchain::create(get_window_size(), surface, VK_NULL_HANDLE);
+	Vk::Surface surface = Vk::createSurface(window);
+	Vk::Swapchain swapchain = Vk::Swapchain::create(get_window_size(), surface.handle(), VK_NULL_HANDLE);
 	// depth and color attachments
 
 	u32 current_frame = 0;
@@ -44,13 +44,13 @@ struct Renderer {
 		.add_set()
 		.add_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.build();
-	VkDescriptorSet vp_set = vp_descriptor_pool.allocateSet((usize)0);
+	VkDescriptorSet vp_set = vp_descriptor_pool.allocateSet();
 
-	SpriteRenderer sprite_manager{ 64, vp_descriptor_pool.layouts[0] };
+	SpriteRenderer sprite_manager{ 64, vp_descriptor_pool.layouts[0].handle() };
 
 	Renderer(const std::string_view app_name, const Vec2<i32> window_size);
 	~Renderer() noexcept {
-		vkQueueWaitIdle(Vk::FurnaceKeeper::queue());
+		vkQueueWaitIdle(Vk::queue());
 	}
 	Renderer(const Renderer&) = delete;
 	Renderer& operator=(const Renderer&) = delete;
@@ -72,7 +72,7 @@ struct Renderer {
 		if (size.x <= 2 || size.y <= 2) {
 			return Err::WindowTooSmall;
 		}
-		swapchain = Vk::Swapchain::create(size, surface, swapchain.handle);
+		swapchain = Vk::Swapchain::create(size, surface.handle(), swapchain.handle());
 		// resize depth and color attachments
 		return Err::Success;
 	};
