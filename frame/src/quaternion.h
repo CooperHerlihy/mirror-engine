@@ -19,7 +19,7 @@ struct Quaternion {
 		return *((T*)this + index);
 	}
 
-	[[nodiscard]] constexpr static Quaternion fromAxisAngle(const Vec3<T>& axis, const T radians) noexcept {
+	[[nodiscard]] constexpr static Quaternion from_axis_angle(const Vec3<T>& axis, const T radians) noexcept {
 		const T sinr = std::sin(radians / 2);
 		return {
 			std::cos(radians / 2),
@@ -123,26 +123,26 @@ struct Quaternion {
 		return r != other.r || i != other.i || j != other.j || k != other.k;
 	}
 	[[nodiscard]] constexpr bool operator<(const Quaternion& other) const noexcept {
-		return absSquared() < other.absSquared();
+		return abs_squared() < other.abs_squared();
 	}
 	[[nodiscard]] constexpr bool operator<=(const Quaternion& other) const noexcept {
-		return absSquared() <= other.absSquared();
+		return abs_squared() <= other.abs_squared();
 	}
 	[[nodiscard]] constexpr bool operator>(const Quaternion& other) const noexcept {
-		return absSquared() > other.absSquared();
+		return abs_squared() > other.abs_squared();
 	}
 	[[nodiscard]] constexpr bool operator>=(const Quaternion& other) const noexcept {
-		return absSquared() >= other.absSquared();
+		return abs_squared() >= other.abs_squared();
 	}
 
 	[[nodiscard]] constexpr T dot(const Quaternion& other) const noexcept {
 		return r * other.r + i * other.i + j * other.j + k * other.k;
 	}
-	[[nodiscard]] constexpr T absSquared() const noexcept {
+	[[nodiscard]] constexpr T abs_squared() const noexcept {
 		return dot(*this);
 	}
 	[[nodiscard]] constexpr T abs() const noexcept {
-		return std::sqrt(absSquared());
+		return std::sqrt(abs_squared());
 	}
 	[[nodiscard]] constexpr Quaternion normalized() const noexcept {
 		assert(r != 0 && i != 0 && j != 0 && k != 0);

@@ -19,7 +19,7 @@ struct Complex {
 		return *((T*)this + index);
 	}
 
-	[[nodiscard]] constexpr static Complex fromAngle(const T radians) noexcept {
+	[[nodiscard]] constexpr static Complex from_angle(const T radians) noexcept {
 		return {
 			std::cos(radians),
 			std::sin(radians)
@@ -44,7 +44,7 @@ struct Complex {
 		return (r * other.r - i * other.i, r * other.i + i * other.r);
 	}
 	[[nodiscard]] constexpr Complex operator/(const Complex& other) const noexcept {
-		assert(other.absSquared() != 0);
+		assert(other.abs_squared() != 0);
 		return {
 			(r * other.r + i * other.i) / (other.r * other.r + other.i * other.i),
 			(r * other.i - i * other.r) / (other.r * other.r + other.i * other.i)
@@ -70,7 +70,7 @@ struct Complex {
 		return *this;
 	}
 	constexpr Complex& operator/=(const Complex& other) noexcept {
-		assert(other.absSquared() != 0);
+		assert(other.abs_squared() != 0);
 		r = (r * other.r + i * other.i) / (other.r * other.r + other.i * other.i);
 		i = (r * other.i - i * other.r) / (other.r * other.r + other.i * other.i);
 		return *this;
@@ -117,23 +117,23 @@ struct Complex {
 		return r != other.r || i != other.i;
 	}
 	[[nodiscard]] constexpr bool operator<(const Complex& other) const noexcept {
-		return absSquared() < other.absSquared();
+		return abs_squared() < other.abs_squared();
 	}
 	[[nodiscard]] constexpr bool operator<=(const Complex& other) const noexcept {
-		return absSquared() <= other.absSquared();
+		return abs_squared() <= other.abs_squared();
 	}
 	[[nodiscard]] constexpr bool operator>(const Complex& other) const noexcept {
-		return absSquared() > other.absSquared();
+		return abs_squared() > other.abs_squared();
 	}
 	[[nodiscard]] constexpr bool operator>=(const Complex& other) const noexcept {
-		return absSquared() >= other.absSquared();
+		return abs_squared() >= other.abs_squared();
 	}
 
-	[[nodiscard]] constexpr T absSquared() const noexcept {
+	[[nodiscard]] constexpr T abs_squared() const noexcept {
 		return r * r + i * i;
 	}
 	[[nodiscard]] constexpr T abs() const noexcept {
-		return std::sqrt(absSquared());
+		return std::sqrt(abs_squared());
 	}
 	[[nodiscard]] constexpr Complex normalized() const noexcept {
 		return (r == 0 && i == 0) ? *this : *this / abs();

@@ -30,10 +30,10 @@ struct Transform3D {
 	constexpr void translate(const Vec3<T>& delta) noexcept {
 		position += delta;
 	}
-	constexpr void rotateExternal(const Quaternion<T>& delta) noexcept {
+	constexpr void rotate_external(const Quaternion<T>& delta) noexcept {
 		rotation = delta * rotation;
 	}
-	constexpr void rotateInternal(const Quaternion<T>& delta) noexcept {
+	constexpr void rotate_internal(const Quaternion<T>& delta) noexcept {
 		rotation = rotation * delta;
 	}
 };

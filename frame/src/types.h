@@ -33,8 +33,4 @@ enum struct Err : u8 {
 	SDL,
 };
 
-template<typename T>
-using Result = std::expected<T, Err>;
-using Error = std::unexpected<Err>;
-
 }

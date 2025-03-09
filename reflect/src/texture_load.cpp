@@ -14,7 +14,7 @@ namespace Mirror {
 	return TextureData{ pixels, width, height, channels };
 }
 
-void TextureData::freePixels() noexcept {
+void TextureData::free_pixels() noexcept {
 	stbi_image_free(pixels);
 	pixels = nullptr;
 	width = 0;

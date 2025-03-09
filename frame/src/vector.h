@@ -106,30 +106,30 @@ struct Vector<T, 2> {
 		return x != other.x || y != other.y;
 	}
 	[[nodiscard]] constexpr bool operator<(const Vector<T, 2>& other) const noexcept {
-		return lengthSquared() < other.lengthSquared();
+		return len_squared() < other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator<=(const Vector<T, 2>& other) const noexcept {
-		return lengthSquared() <= other.lengthSquared();
+		return len_squared() <= other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator>(const Vector<T, 2>& other) const noexcept {
-		return lengthSquared() > other.lengthSquared();
+		return len_squared() > other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator>=(const Vector<T, 2>& other) const noexcept {
-		return lengthSquared() >= other.lengthSquared();
+		return len_squared() >= other.len_squared();
 	}
 
 	[[nodiscard]] constexpr T dot(const Vector<T, 2>& other) const noexcept {
 		return x * other.x + y * other.y;
 	}
-	[[nodiscard]] constexpr T lengthSquared() const noexcept {
+	[[nodiscard]] constexpr T len_squared() const noexcept {
 		return dot(*this);
 	}
-	[[nodiscard]] constexpr T length() const noexcept {
-		return std::sqrt(lengthSquared());
+	[[nodiscard]] constexpr T len() const noexcept {
+		return std::sqrt(len_squared());
 	}
 	[[nodiscard]] constexpr Vector<T, 2> normalized() const noexcept {
 		assert(x != 0 || y != 0);
-		return *this / length();
+		return *this / len();
 	}
 	constexpr Vector<T, 2> normalize() noexcept {
 		*this = normalized();
@@ -249,30 +249,30 @@ struct Vector<T, 3> {
 		return x != other.x || y != other.y || z != other.z;
 	}
 	[[nodiscard]] constexpr bool operator<(const Vector<T, 3>& other) const noexcept {
-		return lengthSquared() < other.lengthSquared();
+		return len_squared() < other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator<=(const Vector<T, 3>& other) const noexcept {
-		return lengthSquared() <= other.lengthSquared();
+		return len_squared() <= other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator>(const Vector<T, 3>& other) const noexcept {
-		return lengthSquared() > other.lengthSquared();
+		return len_squared() > other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator>=(const Vector<T, 3>& other) const noexcept {
-		return lengthSquared() >= other.lengthSquared();
+		return len_squared() >= other.len_squared();
 	}
 
 	[[nodiscard]] constexpr T dot(const Vector<T, 3>& other) const noexcept {
 		return x * other.x + y * other.y + z * other.z;
 	}
-	[[nodiscard]] constexpr T lengthSquared() const noexcept {
+	[[nodiscard]] constexpr T len_squared() const noexcept {
 		return dot(*this);
 	}
-	[[nodiscard]] constexpr T length() const noexcept {
-		return std::sqrt(lengthSquared());
+	[[nodiscard]] constexpr T len() const noexcept {
+		return std::sqrt(len_squared());
 	}
 	[[nodiscard]] constexpr Vector<T, 3> normalized() const noexcept {
 		assert(x != 0 || y != 0 || z != 0);
-		return *this / length();
+		return *this / len();
 	}
 	constexpr Vector<T, 3>& normalize() noexcept {
 		*this = normalized();
@@ -402,30 +402,30 @@ struct Vector<T, 4> {
 		return x != other.x || y != other.y || z != other.z || w != other.w;
 	}
 	[[nodiscard]] constexpr bool operator<(const Vector<T, 4>& other) const noexcept {
-		return lengthSquared() < other.lengthSquared();
+		return len_squared() < other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator<=(const Vector<T, 4>& other) const noexcept {
-		return lengthSquared() <= other.lengthSquared();
+		return len_squared() <= other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator>(const Vector<T, 4>& other) const noexcept {
-		return lengthSquared() > other.lengthSquared();
+		return len_squared() > other.len_squared();
 	}
 	[[nodiscard]] constexpr bool operator>=(const Vector<T, 4>& other) const noexcept {
-		return lengthSquared() >= other.lengthSquared();
+		return len_squared() >= other.len_squared();
 	}
 
 	[[nodiscard]] constexpr T dot(const Vector<T, 4>& other) const noexcept {
 		return x * other.x + y * other.y + z * other.z + w * other.w;
 	}
-	[[nodiscard]] constexpr T lengthSquared() const noexcept {
+	[[nodiscard]] constexpr T len_squared() const noexcept {
 		return dot(*this);
 	}
-	[[nodiscard]] constexpr T length() const noexcept {
-		return std::sqrt(lengthSquared());
+	[[nodiscard]] constexpr T len() const noexcept {
+		return std::sqrt(len_squared());
 	}
 	[[nodiscard]] constexpr Vector<T, 4> normalized() const noexcept {
 		assert(x != 0 || y != 0 || z != 0 || w != 0);
-		return *this / length();
+		return *this / len();
 	}
 	constexpr Vector<T, 4>& normalize() noexcept {
 		*this = normalized();

@@ -38,20 +38,26 @@ int main() {
 	Input movement;
 
 	auto& renderer = engine.renderer;
-	renderer.setProjection(Mirror::Cameraf::perspective(0.01f, 100.0f, 1920.0f / 1080.0f, 3.14149f / 4.0f));
+	f32 camera_fov = 3.1415926535 / 4.0f;
+	renderer.set_projection(Mirror::Cameraf::perspective(0.01f, 100.0f, 1920.0f / 1080.0f, camera_fov));
+	renderer.camera.position = { 0.0f, 0.0f, -1.0f };
 
-	auto cat_texture = renderer.loadSpriteTexture("../../assets/cat.png");
-	Mirror::Transform3Df cat_transform;
-	cat_transform.translate({ 0.0f, 0.0f, 1.0f });
-	cat_transform.scale.x = 1.5f;
+	auto cat_texture = renderer.load_sprite_texture("../../assets/cat.png");
 	Mirror::Mat2f cat_tex_coords = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+
+	Mirror::Transform3Df cat_transform;
+	cat_transform.scale.x = 1.5f;
+
+	Mirror::Transform3Df circling_cat;
+	circling_cat.position = { 0.0f, 0.0f, 1.0f };
+	circling_cat.scale.x = 1.5f;
 
 	Mirror::Clock clock{};
 	f64 print_timer = 0;
 	i32 frame_count = 0;
 	while (true) {
 		clock.update();
-		f64 delta = clock.deltaSec();
+		f64 delta = clock.delta_sec();
 
 		if (print_timer >= 1.0) {
 			std::println("avg: {}ms", 1'000.0 / frame_count);
@@ -83,9 +89,13 @@ int main() {
 			case SDL_EVENT_MOUSE_MOTION:
 				if (event.motion.state & SDL_BUTTON_LMASK) {
 					constexpr f64 sensitivity = 0.006f;
-					renderer.camera.rotateExternal(Mirror::Quatf::fromAxisAngle(Mirror::Vec3f{ 0.0f, 1.0f, 0.0f }, static_cast<f32>(event.motion.xrel * sensitivity)));
-					renderer.camera.rotateInternal(Mirror::Quatf::fromAxisAngle(Mirror::Vec3f{ 1.0f, 0.0f, 0.0f }, static_cast<f32>(-event.motion.yrel * sensitivity)));
+					renderer.camera.rotate_external(Mirror::Quatf::from_axis_angle(Mirror::Vec3f{ 0.0f, 1.0f, 0.0f }, static_cast<f32>(event.motion.xrel * sensitivity)));
+					renderer.camera.rotate_internal(Mirror::Quatf::from_axis_angle(Mirror::Vec3f{ 1.0f, 0.0f, 0.0f }, static_cast<f32>(-event.motion.yrel * sensitivity)));
 				}
+				break;
+			case SDL_EVENT_MOUSE_WHEEL:
+				camera_fov -= event.wheel.y * 0.01f;
+				renderer.set_projection(Mirror::Cameraf::perspective(0.01f, 100.0f, 1920.0f / 1080.0f, camera_fov));
 				break;
 			case SDL_EVENT_KEY_DOWN:
 				switch (event.key.key) {
@@ -144,7 +154,12 @@ int main() {
 			renderer.camera.move(Mirror::Vec3f{ velocity.x, velocity.y, velocity.z }.normalized(), cam_speed * static_cast<f32>(delta));
 		}
 
-		renderer.renderSprite(cat_texture, { cat_transform.matrix(), cat_tex_coords });
+		renderer.render_sprite(cat_texture, { cat_transform.matrix(), cat_tex_coords });
+
+		auto rot = Mirror::Quatf::from_axis_angle({ 0.0f, 1.0f, 0.0f }, delta * 4.0f);
+		circling_cat.position = rot * circling_cat.position;
+		circling_cat.rotate_external(rot);
+		renderer.render_sprite(cat_texture, { circling_cat.matrix(), cat_tex_coords });
 
 		engine.update();
 	}

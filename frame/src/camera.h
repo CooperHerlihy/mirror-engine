@@ -28,12 +28,12 @@ struct Camera {
 		d.y = dir.y;
 		position += d.normalized() * distance;
 	}
-	constexpr void rotateExternal(const Quaternion<T> delta) noexcept { rotation = delta * rotation; }
-	constexpr void rotateInternal(const Quaternion<T> delta) noexcept { rotation = rotation * delta; }
+	constexpr void rotate_external(const Quaternion<T> delta) noexcept { rotation = delta * rotation; }
+	constexpr void rotate_internal(const Quaternion<T> delta) noexcept { rotation = rotation * delta; }
 
 	[[nodiscard]] constexpr static Mat4<T> orthographic(Vec3<T> origin, Vec3<T> size) noexcept {
 		return {
-			{ size.y / size.x, 0, 0, 0 },
+			{ 1 / size.x, 0, 0, 0 },
 			{ 0, 1 / size.y, 0, 0 },
 			{ 0, 0, 1 / size.z, 0 },
 			{ -origin.x, -origin.y, -origin.z, 1 }

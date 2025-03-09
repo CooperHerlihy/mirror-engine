@@ -47,26 +47,26 @@ public:
 [[nodiscard]] constexpr VkInstance instance() {
 	return FurnaceKeeper::get().instance;
 }
-[[nodiscard]] constexpr VkDebugUtilsMessengerEXT debugMessenger() {
+[[nodiscard]] constexpr VkDebugUtilsMessengerEXT debug_messenger() {
 	return FurnaceKeeper::get().debug_messenger;
 }
-[[nodiscard]] constexpr VkPhysicalDevice physicalDevice() {
+[[nodiscard]] constexpr VkPhysicalDevice physical_device() {
 	return FurnaceKeeper::get().physical_device;
 }
 [[nodiscard]] constexpr VkDevice device() {
 	return FurnaceKeeper::get().device;
 }
-[[nodiscard]] constexpr VkCommandPool commandPool() {
+[[nodiscard]] constexpr VkCommandPool command_pool() {
 	return FurnaceKeeper::get().command_pool;
 }
 [[nodiscard]] constexpr VkQueue queue() {
 	return FurnaceKeeper::get().queue;
 }
-[[nodiscard]] constexpr Furnace::QueueFamily queueFamily() {
+[[nodiscard]] constexpr Furnace::QueueFamily queue_family() {
 	return FurnaceKeeper::get().queue_family;
 }
 
-[[nodiscard]] std::optional<VkFormat> find_supported_format(std::span<VkFormat> candidates, const VkImageTiling tiling, const VkFormatFeatureFlags features) noexcept;
+[[nodiscard]] std::optional<VkFormat> find_supported_format(const std::span<const VkFormat> candidates, const VkImageTiling tiling, const VkFormatFeatureFlags features) noexcept;
 [[nodiscard]] std::optional<u32> find_memory_type_index(const u32 type_filter, const VkMemoryPropertyFlags properties) noexcept;
 [[nodiscard]] VkFormat get_depth_format();
 
@@ -76,7 +76,6 @@ public:
 	[[nodiscard]] constexpr T handle() const {
 		return handle_;
 	}
-
 	[[nodiscard]] constexpr T* ptr() {
 		return &handle_;
 	}
@@ -110,7 +109,7 @@ using Semaphore = VulkanResource<VkSemaphore, [](VkSemaphore handle) {
 	vkDestroySemaphore(device(), handle, nullptr);
 }>;
 
-[[nodiscard]] VkSemaphore createSemaphore();
+[[nodiscard]] VkSemaphore create_semaphore();
 
 using Fence = VulkanResource<VkFence, [](VkFence handle) {
 	if (handle != VK_NULL_HANDLE) {
@@ -118,23 +117,23 @@ using Fence = VulkanResource<VkFence, [](VkFence handle) {
 	}
 }>;
 
-[[nodiscard]] VkFence createFence(VkFenceCreateFlags flags = 0);
+[[nodiscard]] VkFence create_fence(VkFenceCreateFlags flags = 0);
 
-inline void waitForFences(const std::span<Fence> fences) {
-	if (vkWaitForFences(Vk::device(), static_cast<u32>(fences.size()), fences.data()->ptr(), VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+inline void wait_for_fences(const std::span<const VkFence> fences) {
+	if (vkWaitForFences(device(), static_cast<u32>(fences.size()), fences.data(), VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
 		throw Err::Vulkan;
 	}
 }
 
-inline void waitForFence(Fence& fence) {
-	waitForFences({ &fence, 1 });
+inline void wait_for_fence(const VkFence fence) {
+	wait_for_fences({ &fence, 1 });
 }
 
 using Sampler = VulkanResource<VkSampler, [](VkSampler handle) {
 	vkDestroySampler(device(), handle, nullptr);
 }>;
 
-[[nodiscard]] VkSampler createSampler(VkFilter type);
+[[nodiscard]] VkSampler create_sampler(VkFilter type);
 
 enum struct MemoryType {
 	HostVisible = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -142,14 +141,16 @@ enum struct MemoryType {
 };
 
 using DeviceMemory = VulkanResource<VkDeviceMemory, [](VkDeviceMemory handle) {
-	vkFreeMemory(Vk::device(), handle, nullptr);
+	vkFreeMemory(device(), handle, nullptr);
 }>;
 
-[[nodiscard]] VkDeviceMemory createDeviceMemory(VkMemoryRequirements requirements, MemoryType type);
+[[nodiscard]] VkDeviceMemory create_device_memory(VkMemoryRequirements requirements, MemoryType type);
+
+void writeToHostVisibleMemory(const VkDeviceMemory dst, const void* src, const VkDeviceSize size, const VkDeviceSize offset = 0);
 
 struct Buffer {
 	VulkanResource<VkBuffer, [](VkBuffer handle) {
-		vkDestroyBuffer(Vk::device(), handle, nullptr);
+		vkDestroyBuffer(device(), handle, nullptr);
 	}> buffer;
 	DeviceMemory memory;
 
@@ -166,19 +167,18 @@ struct Buffer {
 		MemoryType memory_type;
 	};
 
-	[[nodiscard]] static Buffer create(const CreateInfo& create_info);
-
-	void writeHostVisible(const void* data, const VkDeviceSize size, const VkDeviceSize offset = 0) const;
-	void writeDeviceLocal(const void* data, const VkDeviceSize size, const VkDeviceSize offset = 0) const;
+	[[nodiscard]] static Buffer create(const CreateInfo create_info);
 };
 
+void write_device_local_buffer(const Buffer& dst_buffer, const void* src_data, const VkDeviceSize size, const VkDeviceSize offset = 0);
+
 using ImageView = VulkanResource<VkImageView, [](VkImageView handle) {
-	vkDestroyImageView(Vk::device(), handle, nullptr);
+	vkDestroyImageView(device(), handle, nullptr);
 }>;
 
 struct Image {
 	VulkanResource <VkImage, [](VkImage handle) {
-		vkDestroyImage(Vk::device(), handle, nullptr);
+		vkDestroyImage(device(), handle, nullptr);
 	}> image;
 	DeviceMemory memory;
 	ImageView view;
@@ -204,10 +204,9 @@ struct Image {
 	};
 
 	[[nodiscard]] static Image create(const CreateInfo& create_info);
-
-	void writeHostVisible(const void* data, const VkExtent3D extent, const u32 pixel_alignment) const;
-	void writeDeviceLocal(const void* data, const VkExtent3D extent, const u32 pixel_alignment, const VkImageLayout final_layout) const;
 };
+
+void write_device_local_image(const Image& dst_image, const void* src_data, const VkExtent3D extent, const u32 pixel_alignment, const VkImageLayout final_layout);
 
 using DescriptorSetLayout = VulkanResource<VkDescriptorSetLayout, [](VkDescriptorSetLayout handle) {
 	vkDestroyDescriptorSetLayout(device(), handle, nullptr);
@@ -256,22 +255,22 @@ struct DescriptorPool {
 		}
 	};
 
-	void allocateSets(const std::span<const VkDescriptorSetLayout> layouts, const std::span<VkDescriptorSet> out_sets) const;
+	void allocate_sets(const std::span<const VkDescriptorSetLayout> layouts, const std::span<VkDescriptorSet> out_sets) const;
 
-	[[nodiscard]] VkDescriptorSet allocateSet(const VkDescriptorSetLayout layout) const {
+	[[nodiscard]] VkDescriptorSet allocate_set(const VkDescriptorSetLayout layout) const {
 		VkDescriptorSet set = VK_NULL_HANDLE;
-		allocateSets({ &layout, 1 }, { &set, 1 });
+		allocate_sets({ &layout, 1 }, { &set, 1 });
 		return set;
 	}
 
-	[[nodiscard]] VkDescriptorSet allocateSet(const usize layout_index = 0) const {
-		return allocateSet(layouts[layout_index].handle());
+	[[nodiscard]] VkDescriptorSet allocate_set(const usize layout_index = 0) const {
+		return allocate_set(layouts[layout_index].handle());
 	}
 
 };
 
-void writeDescriptorSetBuffer(VkDescriptorSet set, const uint32_t binding, const VkBuffer buffer, const VkDeviceSize range, const VkDeviceSize offset = 0) noexcept;
-void writeDescriptorSetImage(VkDescriptorSet set, const uint32_t binding, const VkSampler sampler, const VkImageView view, const VkImageLayout layout) noexcept;
+void write_descriptor_set_buffer(VkDescriptorSet set, const uint32_t binding, const VkBuffer buffer, const VkDeviceSize range, const VkDeviceSize offset = 0) noexcept;
+void write_descriptor_set_image(VkDescriptorSet set, const uint32_t binding, const VkSampler sampler, const VkImageView view, const VkImageLayout layout) noexcept;
 
 using ShaderModule = VulkanResource<VkShaderModule, [](VkShaderModule handle) {
 	vkDestroyShaderModule(device(), handle, nullptr);
@@ -310,135 +309,54 @@ struct Pipeline {
 		std::span<const VkDescriptorSetLayout> descriptor_layouts;
 		std::optional<VkPushConstantRange> push_constant = {};
 		RenderTarget render_target;
+		VkSampleCountFlagBits MSAA = VK_SAMPLE_COUNT_1_BIT;
 		// cull mode
-		// multisampling
 	};
 
-	[[nodiscard]] static Pipeline createGraphics(const CreateInfo& create_info);
+	[[nodiscard]] static Pipeline create_graphics(const CreateInfo& create_info);
 };
 
 
-struct CommandBuffer {
-	VulkanResource<VkCommandBuffer, [](VkCommandBuffer handle) {
-		vkFreeCommandBuffers(device(), commandPool(), 1, &handle);
-	}> cmd;
+using CommandBuffer = VulkanResource<VkCommandBuffer, [](VkCommandBuffer handle) {
+	vkFreeCommandBuffers(device(), command_pool(), 1, &handle);
+}>;
 
-	constexpr CommandBuffer() noexcept { }
-	constexpr CommandBuffer(VkCommandBuffer handle) noexcept : cmd(handle) { }
+void allocate_command_buffers(const std::span<VkCommandBuffer> dst_buffers, const VkQueueFlags type = VK_QUEUE_GRAPHICS_BIT);
 
-	[[nodiscard]] constexpr VkCommandBuffer handle() const {
-		return cmd.handle();
-	}
-	[[nodiscard]] constexpr VkCommandBuffer* ptr() {
-		return cmd.ptr();
-	}
+[[nodiscard]] inline VkCommandBuffer allocate_command_buffer(const VkQueueFlags type = VK_QUEUE_GRAPHICS_BIT) {
+	VkCommandBuffer buffer = VK_NULL_HANDLE;
+	allocate_command_buffers({ &buffer, 1 }, type);
+	return buffer;
+}
 
-	static void allocate(const std::span<VkCommandBuffer> dst_buffers, const VkQueueFlags type = VK_QUEUE_GRAPHICS_BIT) {
-		assert(type & VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT && "Only graphics and compute command buffers are supported");
-		VkCommandBufferAllocateInfo alloc_info = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-			.commandPool = commandPool(),
-			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			.commandBufferCount = static_cast<u32>(dst_buffers.size()),
-		};
-		if (vkAllocateCommandBuffers(device(), &alloc_info, dst_buffers.data()) != VK_SUCCESS || dst_buffers[0] == VK_NULL_HANDLE) {
-			throw Err::Vulkan;
-		}
-	}
-	[[nodiscard]] static VkCommandBuffer allocate(const VkQueueFlags type = VK_QUEUE_GRAPHICS_BIT) {
-		VkCommandBuffer buffer = VK_NULL_HANDLE;
-		allocate({ &buffer, 1 }, type);
-		return buffer;
-	}
+inline void cmd_begin(const VkCommandBuffer cmd, const VkCommandBufferUsageFlags flags = 0) {
+	VkCommandBufferBeginInfo begin_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = flags,
+	};
+	vkBeginCommandBuffer(cmd, &begin_info);
+}
+void cmd_end_and_submit_simple(const VkCommandBuffer cmd, const VkFence fence = VK_NULL_HANDLE);
 
-	void begin(VkCommandBufferUsageFlags flags = 0) const {
-		VkCommandBufferBeginInfo begin_info = {
-			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			.flags = flags,
-		};
-		vkBeginCommandBuffer(handle(), &begin_info);
-	}
-	void endAndSubmitSimple(VkFence fence = VK_NULL_HANDLE) {
-		if (vkEndCommandBuffer(handle()) != VK_SUCCESS) {
-			throw Err::Vulkan;
-		}
-		VkSubmitInfo submit_info = {
-			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			.commandBufferCount = 1,
-			.pCommandBuffers = ptr(),
-		};
-		if (vkQueueSubmit(queue(), 1, &submit_info, fence) != VK_SUCCESS) {
-			throw Err::Vulkan;
-		}
-	}
+inline void cmd_copy_buffer_to_buffer(const VkCommandBuffer cmd, const VkBuffer src_buffer, const VkBuffer dst_buffer, const VkDeviceSize size, const VkDeviceSize src_offset = 0, const VkDeviceSize dst_offset = 0) noexcept {
+	VkBufferCopy copy_region = {
+		.srcOffset = src_offset,
+		.dstOffset = dst_offset,
+		.size = size,
+	};
+	vkCmdCopyBuffer(cmd, src_buffer, dst_buffer, 1, &copy_region);
+}
 
-	void copyBufferToBuffer(const VkBuffer src_buffer, const VkBuffer dst_buffer, const VkDeviceSize size, const VkDeviceSize src_offset = 0, const VkDeviceSize dst_offset = 0) const noexcept {
-		VkBufferCopy copy_region = {
-			.srcOffset = src_offset,
-			.dstOffset = dst_offset,
-			.size = size,
-		};
-		vkCmdCopyBuffer(handle(), src_buffer, dst_buffer, 1, &copy_region);
-	}
-	void copyBufferToImage(const VkBuffer src_buffer, VkImage dst_image, const VkExtent3D extent) const noexcept {
-		VkBufferImageCopy region = {
-			.bufferOffset = 0,
-			.bufferRowLength = 0,
-			.bufferImageHeight = 0,
-			.imageSubresource = {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.mipLevel = 0,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-			},
-			.imageOffset = { 0, 0, 0 },
-			.imageExtent = extent,
-		};
-		vkCmdCopyBufferToImage(handle(), src_buffer, dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-	}
-	void insertImageMemoryBarrier(const VkImage image,
-		const VkImageLayout old_layout, const VkImageLayout new_layout,
-		const VkPipelineStageFlags src_stage, const VkPipelineStageFlags dst_stage,
-		const VkAccessFlags src_access_mask, const VkAccessFlags dst_access_mask,
-		const VkImageAspectFlags aspect_mask, const u32 mip_level
-	) const noexcept {
-		VkImageMemoryBarrier barrier = {
-			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = src_access_mask,
-			.dstAccessMask = dst_access_mask,
-			.oldLayout = old_layout,
-			.newLayout = new_layout,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = image,
-			.subresourceRange = {
-				.aspectMask = aspect_mask,
-				.baseMipLevel = 0,
-				.levelCount = mip_level,
-				.baseArrayLayer = 0,
-				.layerCount = 1,
-			},
-		};
-		vkCmdPipelineBarrier(handle(), src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-	}
+void cmd_copy_buffer_to_image(const VkCommandBuffer cmd, const VkBuffer src_buffer, VkImage dst_image, const VkExtent3D extent) noexcept;
 
-	void setViewportAndScissor(const Vec2<i32> extent) const noexcept {
-		VkViewport viewport = {
-			.x = 0.0f,
-			.y = 0.0f,
-			.width = static_cast<float>(extent.x),
-			.height = static_cast<float>(extent.y),
-			.minDepth = 0.0f,
-			.maxDepth = 1.0f
-		};
-		vkCmdSetViewport(handle(), 0, 1, &viewport);
-		VkRect2D scissor = { 
-			.offset = { 0, 0 },
-			.extent = { static_cast<u32>(extent.x), static_cast<u32>(extent.y) }
-		};
-		vkCmdSetScissor(handle(), 0, 1, &scissor);
-	}
-};
+void cmd_insert_image_memory_barrier(const VkCommandBuffer cmd, const VkImage image,
+	const VkImageLayout old_layout, const VkImageLayout new_layout,
+	const VkPipelineStageFlags src_stage, const VkPipelineStageFlags dst_stage,
+	const VkAccessFlags src_access_mask, const VkAccessFlags dst_access_mask,
+	const VkImageAspectFlags aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT, const u32 mip_level = 1
+) noexcept;
+
+void cmd_set_viewport_and_scissor(const VkCommandBuffer cmd, const VkExtent3D extent) noexcept;
 
 constexpr VkSurfaceFormatKHR SurfaceFormat = {
 	.format = VK_FORMAT_B8G8R8A8_SRGB,
@@ -449,7 +367,7 @@ using Surface = VulkanResource<VkSurfaceKHR, [](VkSurfaceKHR handle) {
 	vkDestroySurfaceKHR(instance(), handle, nullptr);
 }>;
 
-[[nodiscard]] inline VkSurfaceKHR createSurface(SDL_Window* window) {
+[[nodiscard]] inline VkSurfaceKHR create_surface(SDL_Window* window) {
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
 	if (!SDL_Vulkan_CreateSurface(window, instance(), nullptr, &surface) || surface == VK_NULL_HANDLE) {
 		std::println("{}", SDL_GetError());
@@ -466,8 +384,8 @@ struct Swapchain {
 	}> swapchain;
 	u32 current_image = 0;
 	u32 image_count = 0;
-	std::array<VkImage, MaxImages> images{};
-	std::array<ImageView, MaxImages> image_views{};
+	std::array<VkImage, MaxImages> images = {};
+	std::array<ImageView, MaxImages> image_views;
 
 	[[nodiscard]] constexpr VkSwapchainKHR handle() const {
 		return swapchain.handle();

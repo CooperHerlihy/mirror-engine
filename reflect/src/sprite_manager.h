@@ -17,12 +17,6 @@ struct SpriteRenderer {
 		std::vector<Sprite> sprite_queue;
 	};
 
-	using TextureHandle = usize;
-	struct SpriteHandle {
-		TextureHandle texture;
-		usize index;
-	};
-
 	Vk::DescriptorPool descriptor_pool;
 	Vk::Pipeline pipeline;
 	static constexpr std::array<u16, 6> indices = { 0, 1, 2, 2, 3, 0 };
@@ -39,7 +33,7 @@ struct SpriteRenderer {
 			.add_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
 			.build()
 		},
-		pipeline{ Vk::Pipeline::createGraphics({
+		pipeline{ Vk::Pipeline::create_graphics({
 			.vertex_shader = "../../shaders/sprite.vert.spv",
 			.fragment_shader =  "../../shaders/sprite.frag.spv",
 			.descriptor_layouts = std::array{ vp_set_layout, descriptor_pool.layouts[0].handle() },
@@ -50,19 +44,20 @@ struct SpriteRenderer {
 			},
 			.render_target = {
 				.color_format = Vk::SurfaceFormat.format,
+				.depth_format = Vk::get_depth_format(),
 			},
+			.MSAA = VK_SAMPLE_COUNT_4_BIT,
 		}) }
 	{
-		index_buffer.writeDeviceLocal(indices.data(), sizeof(indices), 0);
+		Vk::write_device_local_buffer(index_buffer, indices.data(), sizeof(indices));
 		textures.reserve(max_textures);
 	}
 
-	Sprite& operator[](const SpriteHandle handle) noexcept { return textures[handle.texture].sprite_queue[handle.index]; }
-	Sprite& getSprite(const SpriteHandle& handle) noexcept { return textures[handle.texture].sprite_queue[handle.index]; }
+	void cmd_render(const VkCommandBuffer command_buffer, const VkDescriptorSet vp_set) noexcept;
 
-	void cmdRender(const VkCommandBuffer command_buffer, const VkDescriptorSet vp_set) noexcept;
-	TextureHandle loadTexture(const std::string_view path, const VkSampler sampler);
-	constexpr void queueSprite(const TextureHandle texture, const SpriteRenderer::Sprite& transform) noexcept {
+	using TextureHandle = usize;
+	TextureHandle load_texture(const std::string_view path, const VkSampler sampler);
+	constexpr void queue_sprite(const TextureHandle texture, const SpriteRenderer::Sprite& transform) noexcept {
 		textures[texture].sprite_queue.push_back(transform);
 	}
 

@@ -20,18 +20,33 @@ struct Renderer {
 	};
 
 	SDL_Window* window;
-	Vk::Surface surface = Vk::createSurface(window);
+	Vk::Surface surface = Vk::create_surface(window);
 	Vk::Swapchain swapchain = Vk::Swapchain::create(get_window_size(), surface.handle(), VK_NULL_HANDLE);
-	// depth and color attachments
+
+	Vk::Image color_image = Vk::Image::create({
+		.extent = get_window_extent(),
+		.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		.memory_type = Vk::MemoryType::DeviceLocal,
+		.format = Vk::SurfaceFormat.format,
+		.samples = VK_SAMPLE_COUNT_4_BIT,
+		});
+	Vk::Image depth_image = Vk::Image::create({
+		.extent = get_window_extent(),
+		.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		.memory_type = Vk::MemoryType::DeviceLocal,
+		.format = Vk::get_depth_format(),
+		.aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT,
+		.samples = VK_SAMPLE_COUNT_4_BIT,
+		});
 
 	u32 current_frame = 0;
-	Vk::Semaphore image_available_semaphores[MaxFramesInFlight]{};
-	Vk::Semaphore render_finished_semaphores[MaxFramesInFlight]{};
-	Vk::Fence in_flight_fences[MaxFramesInFlight]{};
-	VkFence images_in_flight[Vk::Swapchain::MaxImages]{};
-	Vk::CommandBuffer command_buffers[MaxFramesInFlight]{};
-	Vk::Sampler nearest_sampler = Vk::createSampler(VK_FILTER_NEAREST);
-	Vk::Sampler linear_sampler = Vk::createSampler(VK_FILTER_LINEAR);
+	std::array<Vk::Semaphore, MaxFramesInFlight> image_available_semaphores;
+	std::array<Vk::Semaphore, MaxFramesInFlight> render_finished_semaphores;
+	std::array<Vk::Fence, MaxFramesInFlight> in_flight_fences;
+	std::array<VkFence, Vk::Swapchain::MaxImages> images_in_flight = {};
+	std::array<Vk::CommandBuffer, MaxFramesInFlight> command_buffers;
+	Vk::Sampler nearest_sampler = Vk::create_sampler(VK_FILTER_NEAREST);
+	Vk::Sampler linear_sampler = Vk::create_sampler(VK_FILTER_LINEAR);
 
 	Cameraf camera;
 	VPUniform vp_data;
@@ -44,13 +59,13 @@ struct Renderer {
 		.add_set()
 		.add_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
 		.build();
-	VkDescriptorSet vp_set = vp_descriptor_pool.allocateSet();
+	VkDescriptorSet vp_set = vp_descriptor_pool.allocate_set();
 
 	SpriteRenderer sprite_manager{ 64, vp_descriptor_pool.layouts[0].handle() };
 
 	Renderer(const std::string_view app_name, const Vec2<i32> window_size);
 	~Renderer() noexcept {
-		vkQueueWaitIdle(Vk::queue());
+		Vk::wait_for_fences(images_in_flight);
 	}
 	Renderer(const Renderer&) = delete;
 	Renderer& operator=(const Renderer&) = delete;
@@ -72,8 +87,23 @@ struct Renderer {
 		if (size.x <= 2 || size.y <= 2) {
 			return Err::WindowTooSmall;
 		}
+		Vk::wait_for_fences(images_in_flight);
 		swapchain = Vk::Swapchain::create(size, surface.handle(), swapchain.handle());
-		// resize depth and color attachments
+		color_image = Vk::Image::create({
+			.extent = get_window_extent(),
+			.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			.memory_type = Vk::MemoryType::DeviceLocal,
+			.format = Vk::SurfaceFormat.format,
+			.samples = VK_SAMPLE_COUNT_4_BIT,
+			});
+		depth_image = Vk::Image::create({
+			.extent = get_window_extent(),
+			.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+			.memory_type = Vk::MemoryType::DeviceLocal,
+			.format = Vk::get_depth_format(),
+			.aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT,
+			.samples = VK_SAMPLE_COUNT_4_BIT,
+			});
 		return Err::Success;
 	};
 
@@ -82,18 +112,22 @@ struct Renderer {
 		SDL_GetWindowSize(window, &size.x, &size.y);
 		return size;
 	}
+	[[nodiscard]] VkExtent3D get_window_extent() const {
+		auto size = get_window_size();
+		return { static_cast<u32>(size.x), static_cast<u32>(size.y), 1 };
+	}
 
-	void setProjection(const Mat4f& projection) {
+	void set_projection(const Mat4f& projection) {
 		vp_data.projection = projection;
 	}
 
-	SpriteRenderer::TextureHandle loadSpriteTexture(const std::string_view path, const VkFilter sampler_type = VK_FILTER_LINEAR) {
+	SpriteRenderer::TextureHandle load_sprite_texture(const std::string_view path, const VkFilter sampler_type = VK_FILTER_LINEAR) {
 		VkSampler sampler = (sampler_type == VK_FILTER_NEAREST) ? nearest_sampler.handle() : linear_sampler.handle();
-		return sprite_manager.loadTexture(path, sampler);
+		return sprite_manager.load_texture(path, sampler);
 	}
 
-	constexpr void renderSprite(const SpriteRenderer::TextureHandle texture_handle, const SpriteRenderer::Sprite& transform) noexcept {
-		sprite_manager.queueSprite(texture_handle, transform);
+	constexpr void render_sprite(const SpriteRenderer::TextureHandle texture_handle, const SpriteRenderer::Sprite& transform) noexcept {
+		sprite_manager.queue_sprite(texture_handle, transform);
 	}
 };
 

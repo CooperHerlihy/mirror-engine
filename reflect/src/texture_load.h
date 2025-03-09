@@ -14,7 +14,7 @@ struct TextureData {
 	TextureData(u8* pixels, i32 width, i32 height, i32 channels) : pixels(pixels), width(width), height(height), channels(channels) {}
 	~TextureData() noexcept { 
 		if (pixels) {
-			freePixels();
+			free_pixels();
 		}
 	}
 	TextureData(const TextureData&) = delete;
@@ -22,7 +22,7 @@ struct TextureData {
 	constexpr TextureData(TextureData&& other) noexcept : pixels{ other.pixels }, width{ other.width }, height{ other.height }, channels{ other.channels } { other.pixels = nullptr; }
 	TextureData& operator=(TextureData&& other) noexcept { 
 		if (this == &other) return *this;
-		freePixels();
+		free_pixels();
 		pixels = other.pixels; 
 		width = other.width; 
 		height = other.height; 
@@ -35,7 +35,7 @@ struct TextureData {
 	}
 
 	static TextureData load(const char* path);
-	void freePixels() noexcept;
+	void free_pixels() noexcept;
 };
 
 }

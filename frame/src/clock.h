@@ -16,7 +16,7 @@ struct Clock {
 		previous = now;	
 	}
 
-	[[nodiscard]] constexpr f64 deltaSec() const noexcept {
+	[[nodiscard]] constexpr f64 delta_sec() const noexcept {
 		return (f64)delta.count() / 1'000'000'000.0;
 	}
 };

@@ -2,7 +2,7 @@
 
 namespace Mirror::Reflect {
 
-void SpriteRenderer::cmdRender(const VkCommandBuffer cmd, const VkDescriptorSet vp_set) noexcept {
+void SpriteRenderer::cmd_render(const VkCommandBuffer cmd, const VkDescriptorSet vp_set) noexcept {
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
 	vkCmdBindIndexBuffer(cmd, index_buffer.handle(), 0, VK_INDEX_TYPE_UINT16);
 
@@ -19,7 +19,7 @@ void SpriteRenderer::cmdRender(const VkCommandBuffer cmd, const VkDescriptorSet 
 	}
 }
 
-SpriteRenderer::TextureHandle SpriteRenderer::loadTexture(const std::string_view path, const VkSampler sampler) {
+SpriteRenderer::TextureHandle SpriteRenderer::load_texture(const std::string_view path, const VkSampler sampler) {
 	TextureData texture = TextureData::load(path.data());
 
 	VkExtent3D texture_extent = { static_cast<u32>(texture.width), static_cast<u32>(texture.height), 1 };
@@ -29,10 +29,10 @@ SpriteRenderer::TextureHandle SpriteRenderer::loadTexture(const std::string_view
 		.memory_type = Vk::MemoryType::DeviceLocal,
 		.format = VK_FORMAT_R8G8B8A8_SRGB,
 	});
-	image.writeDeviceLocal(texture.pixels, texture_extent, 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	Vk::write_device_local_image(image, texture.pixels, texture_extent, 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	VkDescriptorSet set = descriptor_pool.allocateSet();
-	Vk::writeDescriptorSetImage(set, 0, sampler, image.view.handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	VkDescriptorSet set = descriptor_pool.allocate_set();
+	Vk::write_descriptor_set_image(set, 0, sampler, image.view.handle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	textures.emplace_back(std::move(image), set);
 	return textures.size() - 1;

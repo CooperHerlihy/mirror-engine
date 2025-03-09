@@ -306,10 +306,10 @@ FurnaceKeeper::~FurnaceKeeper() noexcept {
 	}
 }
 
-std::optional<VkFormat> find_supported_format(std::span<VkFormat> candidates, const VkImageTiling tiling, const VkFormatFeatureFlags features) noexcept {
+std::optional<VkFormat> find_supported_format(const std::span<const VkFormat> candidates, const VkImageTiling tiling, const VkFormatFeatureFlags features) noexcept {
 	for (auto candidate : candidates) {
 		VkFormatProperties properties;
-		vkGetPhysicalDeviceFormatProperties(physicalDevice(), candidate, &properties);
+		vkGetPhysicalDeviceFormatProperties(physical_device(), candidate, &properties);
 		if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features) {
 			return candidate;
 		}
@@ -322,7 +322,7 @@ std::optional<VkFormat> find_supported_format(std::span<VkFormat> candidates, co
 
 std::optional<u32> find_memory_type_index(const u32 type_filter, const VkMemoryPropertyFlags properties) noexcept {
 	VkPhysicalDeviceMemoryProperties mem_props;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice(), &mem_props);
+	vkGetPhysicalDeviceMemoryProperties(physical_device(), &mem_props);
 	for (u32 i = 0; i < mem_props.memoryTypeCount; i++) {
 		if ((type_filter & (1 << i)) && (mem_props.memoryTypes[i].propertyFlags & properties) == properties) {
 			return i;
@@ -332,20 +332,17 @@ std::optional<u32> find_memory_type_index(const u32 type_filter, const VkMemoryP
 }
 
 VkFormat get_depth_format() {
-	static VkFormat depth_format = VK_FORMAT_UNDEFINED;
-	if (depth_format != VK_FORMAT_UNDEFINED) {
-		return depth_format;
-	}
-	VkFormat depth_format_candidates[] = { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT };
-	if (auto res = find_supported_format(depth_format_candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT); !res) {
-		throw Err::NoResult;
-	} else {
-		depth_format = res.value();
-		return depth_format;
-	}
+	static VkFormat depth_format = [] {
+		auto format = Vk::find_supported_format(std::array{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+		if (!format.has_value()) {
+			throw Err::Vulkan;
+		}
+		return format.value();
+	}();
+	return depth_format;
 }
 
-VkSemaphore createSemaphore() {
+VkSemaphore create_semaphore() {
 	constexpr VkSemaphoreCreateInfo semaphore_info = {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 	};
@@ -356,7 +353,7 @@ VkSemaphore createSemaphore() {
 	return semaphore;
 }
 
-[[nodiscard]] VkFence createFence(VkFenceCreateFlags flags = 0) {
+[[nodiscard]] VkFence create_fence(VkFenceCreateFlags flags) {
 	VkFenceCreateInfo semaphore_info = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = flags,
@@ -368,17 +365,20 @@ VkSemaphore createSemaphore() {
 	return fence;
 }
 
-VkSampler createSampler(VkFilter type) {
+VkSampler create_sampler(VkFilter type) {
 	VkPhysicalDeviceProperties properties;
-	vkGetPhysicalDeviceProperties(physicalDevice(), &properties);
+	vkGetPhysicalDeviceProperties(physical_device(), &properties);
 	VkSamplerCreateInfo sampler_info = {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		.magFilter = type,
 		.minFilter = type,
 		.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-		.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-		.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		//.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		//.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		//.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+		.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+		.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 		.mipLodBias = 0.0f,
 		.anisotropyEnable = VK_TRUE,
 		.maxAnisotropy = properties.limits.maxSamplerAnisotropy,
@@ -396,7 +396,7 @@ VkSampler createSampler(VkFilter type) {
 	return sampler;
 }
 
-VkDeviceMemory createDeviceMemory(VkMemoryRequirements requirements, MemoryType type) {
+VkDeviceMemory create_device_memory(VkMemoryRequirements requirements, MemoryType type) {
 	u32 memory_type_index;
 	if (auto res = find_memory_type_index(requirements.memoryTypeBits, static_cast<VkMemoryPropertyFlags>(type)); !res) {
 		throw Err::Vulkan;
@@ -413,7 +413,16 @@ VkDeviceMemory createDeviceMemory(VkMemoryRequirements requirements, MemoryType 
 	return memory;
 }
 
-Buffer Buffer::create(const CreateInfo& create_info) {
+void writeToHostVisibleMemory(const VkDeviceMemory dst, const void* src, const VkDeviceSize size, const VkDeviceSize offset) {
+	void* map;
+	if (vkMapMemory(device(), dst, offset, size, 0, &map) != VK_SUCCESS) {
+		throw Err::Vulkan;
+	}
+	memcpy((u8*)map + offset, src, size);
+	vkUnmapMemory(device(), dst);
+}
+
+Buffer Buffer::create(const CreateInfo create_info) {
 	Buffer buffer;
 
 	VkBufferCreateInfo buffer_info = {
@@ -433,7 +442,7 @@ Buffer Buffer::create(const CreateInfo& create_info) {
 
 	VkMemoryRequirements mem_reqs;
 	vkGetBufferMemoryRequirements(device(), buffer.handle(), &mem_reqs);
-	buffer.memory = createDeviceMemory(mem_reqs, create_info.memory_type);
+	buffer.memory = create_device_memory(mem_reqs, create_info.memory_type);
 
 	if (vkBindBufferMemory(device(), buffer.handle(), buffer.memory.handle(), 0)) {
 		throw Err::Vulkan;
@@ -442,30 +451,21 @@ Buffer Buffer::create(const CreateInfo& create_info) {
 	return buffer;
 }
 
-void Buffer::writeHostVisible(const void* data, VkDeviceSize size, VkDeviceSize offset) const {
-	void* map;
-	if (vkMapMemory(Vk::device(), memory.handle(), offset, size, 0, &map) != VK_SUCCESS) {
-		throw Err::Vulkan;
-	}
-	memcpy((u8*)map + offset, data, size);
-	vkUnmapMemory(Vk::device(), memory.handle());
-}
-
-void Buffer::writeDeviceLocal(const void* data, VkDeviceSize size, VkDeviceSize offset) const {
-	Vk::Buffer staging_buffer = Vk::Buffer::create({
+void write_device_local_buffer(const Buffer& dst_buffer, const void* src_data, const VkDeviceSize size, const VkDeviceSize offset) {
+	Buffer staging_buffer = Buffer::create({
 		.size = size,
 		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		.memory_type = Vk::MemoryType::HostVisible,
+		.memory_type = MemoryType::HostVisible,
 		});
-	staging_buffer.writeHostVisible(data, size, offset);
+	writeToHostVisibleMemory(staging_buffer.memory.handle(), src_data, size, offset);
 
-	Vk::CommandBuffer cmd = Vk::CommandBuffer::allocate();
+	CommandBuffer cmd = allocate_command_buffer();
 
-	cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-	cmd.copyBufferToBuffer(staging_buffer.handle(), buffer.handle(), size, offset, offset);
-	Vk::Fence fence = Vk::createFence();
-	cmd.endAndSubmitSimple(fence.handle());
-	Vk::waitForFence(fence);
+	cmd_begin(cmd.handle(), VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	cmd_copy_buffer_to_buffer(cmd.handle(), staging_buffer.handle(), dst_buffer.handle(), size, offset, offset);
+	Fence fence = create_fence();
+	cmd_end_and_submit_simple(cmd.handle(), fence.handle());
+	wait_for_fence(fence.handle());
 }
 
 Image Image::create(const CreateInfo& create_info) {
@@ -496,7 +496,7 @@ Image Image::create(const CreateInfo& create_info) {
 	{
 		VkMemoryRequirements mem_reqs;
 		vkGetImageMemoryRequirements(device(), image.handle(), &mem_reqs);
-		image.memory = createDeviceMemory(mem_reqs, create_info.memory_type);
+		image.memory = create_device_memory(mem_reqs, create_info.memory_type);
 
 		if (vkBindImageMemory(device(), image.handle(), image.memory.handle(), 0) != VK_SUCCESS) {
 			throw Err::Vulkan;
@@ -529,43 +529,31 @@ Image Image::create(const CreateInfo& create_info) {
 	return image;
 }
 
-void Image::writeHostVisible(const void* data, const VkExtent3D extent, const u32 pixel_alignment) const {
-	void* map;
+void write_device_local_image(const Image& dst_image, const void* src_data, const VkExtent3D extent, const u32 pixel_alignment, const VkImageLayout final_layout) {
 	VkDeviceSize size = (VkDeviceSize)extent.width * (VkDeviceSize)extent.height * (VkDeviceSize)extent.depth * (VkDeviceSize)pixel_alignment;
-	if (vkMapMemory(Vk::device(), memory.handle(), 0, size, 0, &map) != VK_SUCCESS) {
-		throw Err::Vulkan;
-	}
-	memcpy((u8*)map, data, size);
-	vkUnmapMemory(Vk::device(), memory.handle());
-}
-
-void Image::writeDeviceLocal(const void* data, const VkExtent3D extent, const u32 pixel_alignment, const VkImageLayout final_layout) const {
-	VkDeviceSize size = (VkDeviceSize)extent.width * (VkDeviceSize)extent.height * (VkDeviceSize)extent.depth * (VkDeviceSize)pixel_alignment;
-	Vk::Buffer staging_buffer = Vk::Buffer::create({
+	Buffer staging_buffer = Buffer::create({
 		.size = size,
 		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		.memory_type = Vk::MemoryType::HostVisible,
+		.memory_type = MemoryType::HostVisible,
 		});
-	staging_buffer.writeHostVisible(data, size, 0);
+	writeToHostVisibleMemory(staging_buffer.memory.handle(), src_data, size);
 
-	Vk::CommandBuffer cmd = Vk::CommandBuffer::allocate();
-	cmd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-	cmd.insertImageMemoryBarrier(image.handle(),
+	CommandBuffer cmd = allocate_command_buffer();
+	cmd_begin(cmd.handle(), VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	cmd_insert_image_memory_barrier(cmd.handle(), dst_image.handle(),
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT, 1
+		VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT
 		);
-	cmd.copyBufferToImage(staging_buffer.handle(), image.handle(), extent);
-	cmd.insertImageMemoryBarrier(image.handle(),
+	cmd_copy_buffer_to_image(cmd.handle(), staging_buffer.handle(), dst_image.handle(), extent);
+	cmd_insert_image_memory_barrier(cmd.handle(), dst_image.handle(),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, final_layout,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT, 1
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT
 		);
-	Vk::Fence fence = Vk::createFence();
-	cmd.endAndSubmitSimple(fence.handle());
-	Vk::waitForFence(fence);
+	Fence fence = create_fence();
+	cmd_end_and_submit_simple(cmd.handle(), fence.handle());
+	wait_for_fence(fence.handle());
 }
 
 DescriptorPool DescriptorPool::create(const CreateInfo& create_info) {
@@ -614,7 +602,7 @@ DescriptorPool DescriptorPool::create(const CreateInfo& create_info) {
 	return pool;
 }
 
-void DescriptorPool::allocateSets(const std::span<const VkDescriptorSetLayout> set_layouts, const std::span<VkDescriptorSet> out_sets) const {
+void DescriptorPool::allocate_sets(const std::span<const VkDescriptorSetLayout> set_layouts, const std::span<VkDescriptorSet> out_sets) const {
 	assert(set_layouts.size() == out_sets.size());
 	VkDescriptorSetAllocateInfo alloc_info{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -627,7 +615,7 @@ void DescriptorPool::allocateSets(const std::span<const VkDescriptorSetLayout> s
 	}
 }
 
-void writeDescriptorSetBuffer(VkDescriptorSet set, const uint32_t binding, const VkBuffer buffer, const VkDeviceSize range, const VkDeviceSize offset) noexcept {
+void write_descriptor_set_buffer(VkDescriptorSet set, const uint32_t binding, const VkBuffer buffer, const VkDeviceSize range, const VkDeviceSize offset) noexcept {
 	VkDescriptorBufferInfo buffer_info{ buffer, offset, range };
 	VkWriteDescriptorSet descriptor_write = {
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -637,10 +625,10 @@ void writeDescriptorSetBuffer(VkDescriptorSet set, const uint32_t binding, const
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.pBufferInfo = &buffer_info
 	};
-	vkUpdateDescriptorSets(Vk::device(), 1, &descriptor_write, 0, nullptr);
+	vkUpdateDescriptorSets(device(), 1, &descriptor_write, 0, nullptr);
 }
 
-void writeDescriptorSetImage(VkDescriptorSet set, const uint32_t binding, const VkSampler sampler, const VkImageView view, const VkImageLayout layout) noexcept {
+void write_descriptor_set_image(VkDescriptorSet set, const uint32_t binding, const VkSampler sampler, const VkImageView view, const VkImageLayout layout) noexcept {
 	VkDescriptorImageInfo image_info{ sampler, view, layout };
 	VkWriteDescriptorSet descriptor_write = {
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -650,10 +638,10 @@ void writeDescriptorSetImage(VkDescriptorSet set, const uint32_t binding, const 
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.pImageInfo = &image_info,
 	};
-	vkUpdateDescriptorSets(Vk::device(), 1, &descriptor_write, 0, nullptr);
+	vkUpdateDescriptorSets(device(), 1, &descriptor_write, 0, nullptr);
 }
 
-[[nodiscard]] Pipeline Pipeline::createGraphics(const CreateInfo& create_info) {
+[[nodiscard]] Pipeline Pipeline::create_graphics(const CreateInfo& create_info) {
 	Pipeline pipeline;
 
 	std::array shader_paths{ create_info.vertex_shader, create_info.fragment_shader };
@@ -753,7 +741,7 @@ void writeDescriptorSetImage(VkDescriptorSet set, const uint32_t binding, const 
 	};
 	VkPipelineMultisampleStateCreateInfo multisample_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.rasterizationSamples = create_info.MSAA,
 		.sampleShadingEnable = VK_TRUE,
 		.minSampleShading = 0.2f,
 		.pSampleMask = nullptr,
@@ -826,11 +814,98 @@ void writeDescriptorSetImage(VkDescriptorSet set, const uint32_t binding, const 
 	return pipeline;
 }
 
+void allocate_command_buffers(const std::span<VkCommandBuffer> dst_buffers, const VkQueueFlags type) {
+	assert(type & VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT && "Only graphics and compute command buffers are supported");
+	VkCommandBufferAllocateInfo alloc_info = {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.commandPool = command_pool(),
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = static_cast<u32>(dst_buffers.size()),
+	};
+	if (vkAllocateCommandBuffers(device(), &alloc_info, dst_buffers.data()) != VK_SUCCESS || dst_buffers[0] == VK_NULL_HANDLE) {
+		throw Err::Vulkan;
+	}
+}
+
+void cmd_end_and_submit_simple(const VkCommandBuffer cmd, const VkFence fence) {
+	if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+		throw Err::Vulkan;
+	}
+	VkSubmitInfo submit_info = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &cmd,
+	};
+	if (vkQueueSubmit(queue(), 1, &submit_info, fence) != VK_SUCCESS) {
+		throw Err::Vulkan;
+	}
+}
+
+void cmd_copy_buffer_to_image(const VkCommandBuffer cmd, const VkBuffer src_buffer, VkImage dst_image, const VkExtent3D extent) noexcept {
+	VkBufferImageCopy region = {
+		.bufferOffset = 0,
+		.bufferRowLength = 0,
+		.bufferImageHeight = 0,
+		.imageSubresource = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.mipLevel = 0,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		},
+		.imageOffset = { 0, 0, 0 },
+		.imageExtent = extent,
+	};
+	vkCmdCopyBufferToImage(cmd, src_buffer, dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+}
+
+void cmd_insert_image_memory_barrier(const VkCommandBuffer cmd, const VkImage image,
+	const VkImageLayout old_layout, const VkImageLayout new_layout,
+	const VkPipelineStageFlags src_stage, const VkPipelineStageFlags dst_stage,
+	const VkAccessFlags src_access_mask, const VkAccessFlags dst_access_mask,
+	const VkImageAspectFlags aspect_mask, const u32 mip_level
+) noexcept {
+	VkImageMemoryBarrier barrier = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.srcAccessMask = src_access_mask,
+		.dstAccessMask = dst_access_mask,
+		.oldLayout = old_layout,
+		.newLayout = new_layout,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = image,
+		.subresourceRange = {
+			.aspectMask = aspect_mask,
+			.baseMipLevel = 0,
+			.levelCount = mip_level,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		},
+	};
+	vkCmdPipelineBarrier(cmd, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void cmd_set_viewport_and_scissor(const VkCommandBuffer cmd, const VkExtent3D extent) noexcept {
+	VkViewport viewport = {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<float>(extent.width),
+		.height = static_cast<float>(extent.height),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+	VkRect2D scissor = { 
+		.offset = { 0, 0 },
+		.extent = { extent.width, extent.height }
+	};
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+
 Swapchain Swapchain::create(const Vec2<i32> window_size, const VkSurfaceKHR surface, const VkSwapchainKHR old_swapchain) {
 	Swapchain swapchain;
 
 	VkSurfaceCapabilitiesKHR surface_capabilities;
-	if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice(), surface, &surface_capabilities) != VK_SUCCESS) {
+	if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device(), surface, &surface_capabilities) != VK_SUCCESS) {
 		throw Err::Vulkan;
 	}
 	Vec2<u32> extent = { static_cast<u32>(window_size.x), static_cast<u32>(window_size.y) };
@@ -857,11 +932,11 @@ Swapchain Swapchain::create(const Vec2<i32> window_size, const VkSurfaceKHR surf
 	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	{
 		uint32_t present_mode_count;
-		if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice(), surface, &present_mode_count, nullptr) != VK_SUCCESS) {
+		if (vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device(), surface, &present_mode_count, nullptr) != VK_SUCCESS) {
 			throw Err::Vulkan;
 		}
 		std::vector<VkPresentModeKHR> available_present_modes{ 32 };
-		if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice(), surface, &present_mode_count, available_present_modes.data()) != VK_SUCCESS) {
+		if (vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device(), surface, &present_mode_count, available_present_modes.data()) != VK_SUCCESS) {
 		}
 		for (auto available_present_mode : available_present_modes) {
 			if (available_present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -879,7 +954,7 @@ Swapchain Swapchain::create(const Vec2<i32> window_size, const VkSurfaceKHR surf
 		.imageColorSpace = SurfaceFormat.colorSpace,
 		.imageExtent = { extent.x, extent.y },
 		.imageArrayLayers = 1,
-		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount = 1,
 		.pQueueFamilyIndices = &FurnaceKeeper::get().queue_family,
