@@ -3,5 +3,5 @@
 #include "mirror.h"
 
 int main() {
-
+	std::println("hello test");
 }

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <expected>
+
 using i8 = int8_t;
 using i16 = int16_t;
 using i32 = int32_t;
@@ -18,13 +21,20 @@ using f64 = double;
 
 namespace Mirror {
 
-enum struct Error {
-	SUCCESS,
-	NO_RESULT,
-	WINDOW,
-	FILE,
-	VULKAN,
+enum struct Err : u8 {
+	Success,
+	Unknown,
+	NoResult,
+	OutOfMemory,
+	WindowTooSmall,
+	CouldNotOpenFile,
+	Timeout,
+	Vulkan,
 	SDL,
 };
+
+template<typename T>
+using Result = std::expected<T, Err>;
+using Error = std::unexpected<Err>;
 
 }
