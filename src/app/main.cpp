@@ -17,8 +17,11 @@ struct Input {
 	u8 bits = 0;
 
 	constexpr void set(Direction dir, bool value) noexcept {
-		if (value) set(dir);
-		else reset(dir);
+		if (value) {
+			set(dir);
+		} else {
+			reset(dir);
+		}
 	}
 	constexpr void set(Direction dir) noexcept {
 		bits |= dir;
@@ -33,24 +36,25 @@ struct Input {
 };
 
 int main() {
-	Mirror::Engine engine{ { 1920, 1080 }, "Mirror Window", "Mirror App", "1.0.0" };
+	Mirror::Vk::FurnaceKeeper furnace{"Mirror App", "1.0.0"};
 
-	Input movement;
-
-	auto& renderer = engine.renderer;
+	Mirror::Reflect::Renderer renderer{"Mirror Window", {1920, 1080}};
+	Mirror::Cameraf camera = {.position = {0.0f, 0.0f, -1.0f}};
+	renderer.set_view(camera.view());
 	f32 camera_fov = 3.1415926535f / 4.0f;
 	renderer.set_projection(Mirror::Cameraf::perspective(0.01f, 100.0f, 1920.0f / 1080.0f, camera_fov));
-	renderer.camera.position = { 0.0f, 0.0f, -1.0f };
 
 	auto cat_texture = renderer.load_sprite_texture("../assets/cat.png");
-	Mirror::Mat2f cat_tex_coords = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+	Mirror::Mat2f cat_tex_coords = {{0.0f, 0.0f}, {1.0f, 1.0f}};
 
 	Mirror::Transform3Df cat_transform;
 	cat_transform.scale.x = 1.5f;
 
 	Mirror::Transform3Df circling_cat;
-	circling_cat.position = { 0.0f, 0.0f, 1.0f };
+	circling_cat.position = {0.0f, 0.0f, 1.0f};
 	circling_cat.scale.x = 1.5f;
+
+	Input movement;
 
 	Mirror::Clock clock{};
 	f64 print_timer = 0;
@@ -73,24 +77,22 @@ int main() {
 			case SDL_EVENT_QUIT:
 				exit(0);
 			case SDL_EVENT_WINDOW_MINIMIZED:
-				for (; event.type != SDL_EVENT_WINDOW_RESTORED; SDL_WaitEvent(&event)) { }
+				for (; event.type != SDL_EVENT_WINDOW_RESTORED; SDL_WaitEvent(&event)) {}
 				break;
-			case SDL_EVENT_WINDOW_RESIZED:
-			{
-				Mirror::Err res = engine.renderer.resize();
-				for (; res == Mirror::Err::WindowTooSmall; res = engine.renderer.resize()) {
-					for (SDL_WaitEvent(&event); event.type != SDL_EVENT_WINDOW_RESIZED; SDL_WaitEvent(&event)) { }
-				}
-				if (res != Mirror::Err::Success) {
-					std::terminate();
+			case SDL_EVENT_WINDOW_RESIZED: {
+				for (bool success = renderer.resize(); !success; success = renderer.resize()) {
+					for (SDL_WaitEvent(&event); event.type != SDL_EVENT_WINDOW_RESIZED; SDL_WaitEvent(&event)) {}
 				}
 				break;
 			}
 			case SDL_EVENT_MOUSE_MOTION:
 				if (event.motion.state & SDL_BUTTON_LMASK) {
 					constexpr f64 sensitivity = 0.006f;
-					renderer.camera.rotate_external(Mirror::Quatf::from_axis_angle(Mirror::Vec3f{ 0.0f, 1.0f, 0.0f }, static_cast<f32>(event.motion.xrel * sensitivity)));
-					renderer.camera.rotate_internal(Mirror::Quatf::from_axis_angle(Mirror::Vec3f{ 1.0f, 0.0f, 0.0f }, static_cast<f32>(-event.motion.yrel * sensitivity)));
+					camera.rotate_external(Mirror::Quatf::from_axis_angle(
+						Mirror::Vec3f{0.0f, 1.0f, 0.0f}, static_cast<f32>(event.motion.xrel * sensitivity)));
+					camera.rotate_internal(Mirror::Quatf::from_axis_angle(
+						Mirror::Vec3f{1.0f, 0.0f, 0.0f}, static_cast<f32>(-event.motion.yrel * sensitivity)));
+					renderer.set_view(camera.view());
 				}
 				break;
 			case SDL_EVENT_MOUSE_WHEEL:
@@ -146,21 +148,23 @@ int main() {
 
 		constexpr f32 cam_speed = 2.0f;
 		Mirror::Vec3f velocity = {
-			(f32)(movement.get(Input::Direction::Right) - movement.get(Input::Direction::Left)),
-			(f32)(movement.get(Input::Direction::Down) - movement.get(Input::Direction::Up)),
-			(f32)(movement.get(Input::Direction::Forward) - movement.get(Input::Direction::Back)),
+			static_cast<f32>(movement.get(Input::Direction::Right) - movement.get(Input::Direction::Left)),
+			static_cast<f32>(movement.get(Input::Direction::Down) - movement.get(Input::Direction::Up)),
+			static_cast<f32>(movement.get(Input::Direction::Forward) - movement.get(Input::Direction::Back)),
 		};
 		if (velocity.x != 0 || velocity.y != 0 || velocity.z != 0) {
-			renderer.camera.move(Mirror::Vec3f{ velocity.x, velocity.y, velocity.z }.normalized(), cam_speed * static_cast<f32>(delta));
+			camera.move(Mirror::Vec3f{velocity.x, velocity.y, velocity.z}.normalized(),
+						cam_speed * static_cast<f32>(delta));
+			renderer.set_view(camera.view());
 		}
 
-		renderer.render_sprite(cat_texture, { cat_transform.matrix(), cat_tex_coords });
+		renderer.render_sprite(cat_texture, {cat_transform.matrix(), cat_tex_coords});
 
-		auto rot = Mirror::Quatf::from_axis_angle({ 0.0f, 1.0f, 0.0f }, static_cast<f32>(delta * 4.0));
+		auto rot = Mirror::Quatf::from_axis_angle({0.0f, 1.0f, 0.0f}, static_cast<f32>(delta * 4.0));
 		circling_cat.position = rot * circling_cat.position;
 		circling_cat.rotate_external(rot);
-		renderer.render_sprite(cat_texture, { circling_cat.matrix(), cat_tex_coords });
+		renderer.render_sprite(cat_texture, {circling_cat.matrix(), cat_tex_coords});
 
-		engine.update();
+		renderer.update();
 	}
 }

@@ -5,13 +5,14 @@
 
 namespace Mirror {
 
-[[nodiscard]] TextureData TextureData::load(const char* path) {
-	int width, height, channels;
-	u8* pixels = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
-	if (!pixels) {
-		throw Err::CouldNotOpenFile;
-	}
-	return TextureData{ pixels, width, height, channels };
+[[nodiscard]] TextureData TextureData::load(const std::string_view path) {
+	i32 width, height, channels;
+	u8* pixels = stbi_load(path.data(), &width, &height, &channels, STBI_rgb_alpha);
+	release_assert(pixels != nullptr);
+	release_assert(width > 0);
+	release_assert(height > 0);
+	release_assert(channels > 0);
+	return TextureData{pixels, width, height, channels};
 }
 
 void TextureData::free_pixels() noexcept {
@@ -22,5 +23,4 @@ void TextureData::free_pixels() noexcept {
 	channels = 0;
 }
 
-}
-
+} // namespace Mirror

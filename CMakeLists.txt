@@ -3,14 +3,17 @@ cmake_minimum_required(VERSION 3.30)
 project(MirrorEngine VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+
 find_package(Vulkan REQUIRED)
+
+add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 file(GLOB_RECURSE FRAME_SOURCES "src/frame/*.cpp" "include/frame/*.h")
 add_library(Frame STATIC ${FRAME_SOURCES})
 target_include_directories(Frame PUBLIC include ${CMAKE_SOURCE_DIR}/vendor)
-target_include_directories(Frame PUBLIC ${CMAKE_SOURCE_DIR}/vendor/SDL3/include)
-target_link_directories(Frame PUBLIC ${CMAKE_SOURCE_DIR}/vendor/SDL3/lib/x64)
-target_link_libraries(Frame PUBLIC SDL3 Vulkan::Vulkan)
+target_link_libraries(Frame PUBLIC SDL3::SDL3 Vulkan::Vulkan)
 
 file(GLOB_RECURSE REFLECT_SOURCES "src/reflect/*.cpp" "include/reflect/*.h")
 add_library(Reflect STATIC ${REFLECT_SOURCES})
@@ -27,22 +30,10 @@ add_executable(App ${APP_SOURCES})
 target_include_directories(App PUBLIC include)
 target_link_libraries(App PUBLIC Mirror)
 
-add_custom_command(TARGET App POST_BUILD
-COMMAND ${CMAKE_COMMAND} -E copy_if_different
-	${CMAKE_SOURCE_DIR}/vendor/SDL3/lib/x64/SDL3.dll
-	$<TARGET_FILE_DIR:App>
-)
-
 file(GLOB_RECURSE SOURCES "src/test/*.cpp" "include/test/*.h" "shaders/*.vert" "shaders/*.frag")
 add_executable(Test ${SOURCES})
 target_include_directories(Test PUBLIC include)
 target_link_libraries(Test PUBLIC Mirror)
-
-add_custom_command(TARGET Test POST_BUILD
-COMMAND ${CMAKE_COMMAND} -E copy_if_different
-	${CMAKE_SOURCE_DIR}/vendor/SDL3/lib/x64/SDL3.dll
-	$<TARGET_FILE_DIR:Test>
-)
 
 if(MSVC)
 	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT App)

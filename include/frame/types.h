@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <expected>
 
 using i8 = int8_t;
 using i16 = int16_t;
@@ -33,4 +32,4 @@ enum struct Err : u8 {
 	SDL,
 };
 
-}
+} // namespace Mirror
