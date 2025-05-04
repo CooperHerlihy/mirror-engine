@@ -1,7 +1,8 @@
 #pragma once
 
+#include "frame/frame.h"
+
 #include "reflect/furnace.h"
-#include "reflect/texture_load.h"
 
 namespace Mirror::Reflect {
 
@@ -15,17 +16,19 @@ public:
 	struct Texture {
 		Vk::Image image;
 		VkDescriptorSet set;
-		std::vector<Sprite> sprite_queue;
+		std::vector<Sprite> render_queue;
 	};
 
 	SpriteRenderer(const u32 max_textures, const VkDescriptorSetLayout vp_set_layout);
 
 	void cmd_render(const VkCommandBuffer command_buffer, const VkDescriptorSet vp_set) noexcept;
+
 	using TextureHandle = usize;
-	TextureHandle load_texture(const std::string_view path, const VkSampler sampler);
-	constexpr void queue_sprite(const TextureHandle texture, const SpriteRenderer::Sprite& transform) noexcept {
+	[[nodiscard]] TextureHandle load_texture(const std::string_view path, const VkSampler sampler);
+
+	constexpr void queue_sprite(const TextureHandle texture, const Sprite& transform) noexcept {
 		debug_assert(texture < m_textures.size());
-		m_textures[texture].sprite_queue.push_back(transform);
+		m_textures[texture].render_queue.push_back(transform);
 	}
 
 private:

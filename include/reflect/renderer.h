@@ -2,6 +2,7 @@
 
 #include "reflect/furnace.h"
 #include "reflect/sprite_renderer.h"
+#include "reflect/model_renderer.h"
 
 namespace Mirror::Reflect {
 
@@ -47,11 +48,11 @@ struct Renderer {
 	}
 
 	void set_projection(const Mat4f& projection) {
-		Vk::writeToHostVisibleMemory(m_vp_buffer.memory.handle(), &projection, sizeof(projection),
+		Vk::write_to_host_visible_memory(m_vp_buffer.memory.handle(), &projection, sizeof(projection),
 									 offsetof(VPUniform, projection));
 	}
 	void set_view(const Mat4f& view) {
-		Vk::writeToHostVisibleMemory(m_vp_buffer.memory.handle(), &view, sizeof(view), offsetof(VPUniform, view));
+		Vk::write_to_host_visible_memory(m_vp_buffer.memory.handle(), &view, sizeof(view), offsetof(VPUniform, view));
 	}
 
 	SpriteRenderer::TextureHandle load_sprite_texture(const std::string_view path,
@@ -66,9 +67,30 @@ struct Renderer {
 		return m_sprite_manager.load_texture(path, sampler);
 	}
 
-	constexpr void render_sprite(const SpriteRenderer::TextureHandle texture_handle,
+	SpriteRenderer::TextureHandle load_model_texture(const std::string_view path,
+													 const VkFilter sampler_type = VK_FILTER_LINEAR) {
+		VkSampler sampler = VK_NULL_HANDLE;
+		if (sampler_type == VK_FILTER_LINEAR) {
+			sampler = m_nearest_sampler.handle();
+		} else if (sampler_type == VK_FILTER_NEAREST) {
+			sampler = m_linear_sampler.handle();
+		}
+		debug_assert(sampler != VK_NULL_HANDLE);
+		return m_model_manager.load_texture(path, sampler);
+	}
+
+	ModelRenderer::ModelHandle load_model(const std::string_view path, const Vec3<bool> flip,
+										  const ModelRenderer::TextureHandle texture) {
+		return m_model_manager.load_model(path, flip, texture);
+	}
+
+	constexpr void render_sprite(const SpriteRenderer::TextureHandle texture,
 								 const SpriteRenderer::Sprite& transform) noexcept {
-		m_sprite_manager.queue_sprite(texture_handle, transform);
+		m_sprite_manager.queue_sprite(texture, transform);
+	}
+
+	constexpr void render_model(const ModelRenderer::ModelHandle model, const Transform3Df& transform) noexcept {
+		m_model_manager.queue_model(model, transform);
 	}
 
 private:
@@ -114,6 +136,7 @@ private:
 	VkDescriptorSet m_vp_set = m_vp_descriptor_pool.allocate_set();
 
 	SpriteRenderer m_sprite_manager{64, m_vp_descriptor_pool.layouts[0].handle()};
+	ModelRenderer m_model_manager{64, m_vp_descriptor_pool.layouts[0].handle()};
 };
 
 } // namespace Mirror::Reflect

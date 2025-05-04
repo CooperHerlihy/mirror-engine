@@ -16,10 +16,50 @@ inline constexpr std::array ValidationLayers = {"VK_LAYER_KHRONOS_validation"};
 #endif
 inline constexpr u32 MaxSwapchainImages = 3;
 
+template <typename T, void (*destructor)(T)> class VulkanResource {
+public:
+	constexpr VulkanResource() noexcept = default;
+	constexpr VulkanResource(T handle) noexcept : m_handle(handle) {}
+	~VulkanResource() noexcept {
+		if (m_handle != VK_NULL_HANDLE) {
+			destructor(m_handle);
+		}
+	}
+
+	[[nodiscard]] constexpr T handle() const {
+		return m_handle;
+	}
+	[[nodiscard]] constexpr T* ptr() {
+		return &m_handle;
+	}
+	[[nodiscard]] constexpr bool valid() const {
+		return m_handle != VK_NULL_HANDLE;
+	}
+
+	VulkanResource(const VulkanResource&) = delete;
+	VulkanResource& operator=(const VulkanResource&) = delete;
+	constexpr VulkanResource(VulkanResource&& other) noexcept : m_handle(other.handle()) {
+		other.m_handle = VK_NULL_HANDLE;
+	}
+	VulkanResource& operator=(VulkanResource&& other) noexcept {
+		if (this == &other) {
+			return *this;
+		}
+		if (m_handle != VK_NULL_HANDLE) {
+			destructor(m_handle);
+		}
+		m_handle = other.m_handle;
+		other.m_handle = VK_NULL_HANDLE;
+		return *this;
+	}
+
+private:
+	T m_handle = VK_NULL_HANDLE;
+};
+
 using QueueFamily = u32;
 
 inline struct Furnace {
-
 	VkInstance instance = VK_NULL_HANDLE;
 #ifndef NDEBUG
 	VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
@@ -70,47 +110,6 @@ public:
 														const VkMemoryPropertyFlags properties) noexcept;
 [[nodiscard]] VkFormat get_depth_format();
 
-template <typename T, void (*destructor)(T)> class VulkanResource {
-public:
-	constexpr VulkanResource() noexcept = default;
-	constexpr VulkanResource(T handle) noexcept : m_handle(handle) {}
-	~VulkanResource() noexcept {
-		if (m_handle != VK_NULL_HANDLE) {
-			destructor(m_handle);
-		}
-	}
-
-	[[nodiscard]] constexpr T handle() const {
-		return m_handle;
-	}
-	[[nodiscard]] constexpr T* ptr() {
-		return &m_handle;
-	}
-	[[nodiscard]] constexpr bool valid() const {
-		return m_handle != VK_NULL_HANDLE;
-	}
-
-	VulkanResource(const VulkanResource&) = delete;
-	VulkanResource& operator=(const VulkanResource&) = delete;
-	constexpr VulkanResource(VulkanResource&& other) noexcept : m_handle(other.handle()) {
-		other.m_handle = VK_NULL_HANDLE;
-	}
-	VulkanResource& operator=(VulkanResource&& other) noexcept {
-		if (this == &other) {
-			return *this;
-		}
-		if (m_handle != VK_NULL_HANDLE) {
-			destructor(m_handle);
-		}
-		m_handle = other.m_handle;
-		other.m_handle = VK_NULL_HANDLE;
-		return *this;
-	}
-
-private:
-	T m_handle = VK_NULL_HANDLE;
-};
-
 using Semaphore = VulkanResource<VkSemaphore, [](const VkSemaphore handle) {
 	vkDestroySemaphore(device(), handle, nullptr);
 }>;
@@ -149,7 +148,7 @@ using DeviceMemory = VulkanResource<VkDeviceMemory, [](const VkDeviceMemory hand
 
 [[nodiscard]] VkDeviceMemory create_device_memory(const VkMemoryRequirements requirements, const MemoryType type);
 
-void writeToHostVisibleMemory(const VkDeviceMemory dst, const void* src, const VkDeviceSize size,
+void write_to_host_visible_memory(const VkDeviceMemory dst, const void* src, const VkDeviceSize size,
 							  const VkDeviceSize offset = 0);
 
 struct Buffer {
@@ -342,8 +341,8 @@ struct GraphicsPipeline {
 
 		std::string_view vertex_shader;
 		std::string_view fragment_shader;
-		std::vector<VkVertexInputBindingDescription> binding_descriptions;
-		std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
+		std::span<const VkVertexInputBindingDescription> binding_descriptions;
+		std::span<const VkVertexInputAttributeDescription> attribute_descriptions;
 		std::span<const VkDescriptorSetLayout> descriptor_layouts;
 		std::optional<VkPushConstantRange> push_constant = {};
 		RenderTarget render_target;

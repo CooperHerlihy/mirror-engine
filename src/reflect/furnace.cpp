@@ -415,7 +415,7 @@ VkDeviceMemory create_device_memory(const VkMemoryRequirements requirements, con
 	return device_memory;
 }
 
-void writeToHostVisibleMemory(const VkDeviceMemory dst, const void* src, const VkDeviceSize size,
+void write_to_host_visible_memory(const VkDeviceMemory dst, const void* src, const VkDeviceSize size,
 							  const VkDeviceSize offset) {
 	debug_assert(dst != VK_NULL_HANDLE);
 	debug_assert(src != nullptr);
@@ -471,7 +471,7 @@ void write_device_local_buffer(const Buffer& dst_buffer, const void* src_data, c
 		.memory_type = MemoryType::HostVisible,
 	});
 	debug_assert(staging_buffer.valid());
-	writeToHostVisibleMemory(staging_buffer.memory.handle(), src_data, size, offset);
+	write_to_host_visible_memory(staging_buffer.memory.handle(), src_data, size, offset);
 
 	CommandBuffer cmd = create_command_buffer();
 	debug_assert(cmd.valid());
@@ -572,7 +572,7 @@ void write_device_local_image(const Image& dst_image, const void* src_data, cons
 		.memory_type = MemoryType::HostVisible,
 	});
 	debug_assert(staging_buffer.valid());
-	writeToHostVisibleMemory(staging_buffer.memory.handle(), src_data, size);
+	write_to_host_visible_memory(staging_buffer.memory.handle(), src_data, size);
 
 	CommandBuffer cmd = create_command_buffer();
 	debug_assert(cmd.valid());

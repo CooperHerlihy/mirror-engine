@@ -34,7 +34,7 @@ Renderer::Renderer(const std::string_view app_name, const Vec2<i32> window_size)
 		debug_assert(fence.valid());
 	}
 	VPUniform vp_data;
-	Vk::writeToHostVisibleMemory(m_vp_buffer.memory.handle(), &vp_data, sizeof(vp_data));
+	Vk::write_to_host_visible_memory(m_vp_buffer.memory.handle(), &vp_data, sizeof(vp_data));
 	Vk::write_descriptor_set_buffer(m_vp_set, 0, m_vp_buffer.handle(), sizeof(vp_data));
 }
 
@@ -91,6 +91,7 @@ void Renderer::update() {
 
 	debug_assert(m_vp_set != VK_NULL_HANDLE);
 	m_sprite_manager.cmd_render(cmd.handle(), m_vp_set);
+	m_model_manager.cmd_render(cmd.handle(), m_vp_set);
 
 	vkCmdEndRendering(cmd.handle());
 
@@ -164,7 +165,7 @@ void Renderer::update() {
 bool Renderer::resize() {
 	Vec2<i32> size = get_window_size();
 	if (size.x <= 2 || size.y <= 2) {
-		return false
+		return false;
 	}
 	Vk::wait_for_fences(m_images_in_flight);
 	m_swapchain = Vk::Swapchain::create(size, m_surface.handle(), m_swapchain.handle());

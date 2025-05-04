@@ -12,8 +12,8 @@ add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 file(GLOB_RECURSE FRAME_SOURCES "src/frame/*.cpp" "include/frame/*.h")
 add_library(Frame STATIC ${FRAME_SOURCES})
-target_include_directories(Frame PUBLIC include ${CMAKE_SOURCE_DIR}/vendor)
-target_link_libraries(Frame PUBLIC SDL3::SDL3 Vulkan::Vulkan)
+target_include_directories(Frame PUBLIC include vendor)
+target_link_libraries(Frame PUBLIC Vulkan::Vulkan SDL3::SDL3)
 
 file(GLOB_RECURSE REFLECT_SOURCES "src/reflect/*.cpp" "include/reflect/*.h")
 add_library(Reflect STATIC ${REFLECT_SOURCES})

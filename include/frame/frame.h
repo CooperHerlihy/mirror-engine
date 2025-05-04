@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <expected>
+#include <format>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -13,13 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "frame/assert.h"
-#include "frame/camera.h"
-#include "frame/complex.h"
-#include "frame/defer.h"
-#include "frame/matrix.h"
-#include "frame/quaternion.h"
-#include "frame/time.h"
-#include "frame/transform.h"
-#include "frame/types.h"
-#include "frame/vector.h"
+#include "frame/math.h"
+#include "frame/utils.h"
+#include "frame/assets.h"

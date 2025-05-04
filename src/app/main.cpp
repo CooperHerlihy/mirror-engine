@@ -39,19 +39,22 @@ int main() {
 	Mirror::Vk::FurnaceKeeper furnace{"Mirror App", "1.0.0"};
 
 	Mirror::Reflect::Renderer renderer{"Mirror Window", {1920, 1080}};
-	Mirror::Cameraf camera = {.position = {0.0f, 0.0f, -1.0f}};
+	Mirror::Cameraf camera = {.position = {0.0f, -1.0f, -1.0f}};
 	renderer.set_view(camera.view());
 	f32 camera_fov = 3.1415926535f / 4.0f;
 	renderer.set_projection(Mirror::Cameraf::perspective(0.01f, 100.0f, 1920.0f / 1080.0f, camera_fov));
 
+	auto dungeon_texture = renderer.load_model_texture("../assets/dungeon_models/Assets/textures/dungeon_texture.png");
+	auto barrels_handle = renderer.load_model("../assets/dungeon_models/Assets/obj/barrel_small_stack.obj",
+											  {false, true, true}, dungeon_texture);
+
+	Mirror::Transform3Df barrels_transform;
+
 	auto cat_texture = renderer.load_sprite_texture("../assets/cat.png");
 	Mirror::Mat2f cat_tex_coords = {{0.0f, 0.0f}, {1.0f, 1.0f}};
 
-	Mirror::Transform3Df cat_transform;
-	cat_transform.scale.x = 1.5f;
-
 	Mirror::Transform3Df circling_cat;
-	circling_cat.position = {0.0f, 0.0f, 1.0f};
+	circling_cat.position = {0.0f, -1.0f, 1.0f};
 	circling_cat.scale.x = 1.5f;
 
 	Input movement;
@@ -158,12 +161,12 @@ int main() {
 			renderer.set_view(camera.view());
 		}
 
-		renderer.render_sprite(cat_texture, {cat_transform.matrix(), cat_tex_coords});
-
 		auto rot = Mirror::Quatf::from_axis_angle({0.0f, 1.0f, 0.0f}, static_cast<f32>(delta * 4.0));
 		circling_cat.position = rot * circling_cat.position;
 		circling_cat.rotate_external(rot);
 		renderer.render_sprite(cat_texture, {circling_cat.matrix(), cat_tex_coords});
+
+		renderer.render_model(barrels_handle, barrels_transform);
 
 		renderer.update();
 	}

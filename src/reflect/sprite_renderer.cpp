@@ -17,11 +17,10 @@ SpriteRenderer::SpriteRenderer(const u32 max_textures, const VkDescriptorSetLayo
 				  .offset = 0,
 				  .size = sizeof(Sprite),
 			  },
-		  .render_target =
-			  {
-				  .color_format = Vk::SurfaceFormat.format,
-				  .depth_format = Vk::get_depth_format(),
-			  },
+		  .render_target{
+			  .color_format = Vk::SurfaceFormat.format,
+			  .depth_format = Vk::get_depth_format(),
+		  },
 		  .MSAA = VK_SAMPLE_COUNT_4_BIT,
 	  })} {
 	Vk::write_device_local_buffer(m_index_buffer, Indices.data(), sizeof(Indices));
@@ -44,12 +43,12 @@ void SpriteRenderer::cmd_render(const VkCommandBuffer cmd, const VkDescriptorSet
 		vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.layout.handle(), 0, std::size(set_arr),
 								set_arr, 0, nullptr);
 
-		for (auto& sprite : texture.sprite_queue) {
+		for (auto& sprite : texture.render_queue) {
 			vkCmdPushConstants(cmd, m_pipeline.layout.handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Sprite), &sprite);
 			vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 		}
 
-		texture.sprite_queue.clear();
+		texture.render_queue.clear();
 	}
 }
 
@@ -57,7 +56,7 @@ SpriteRenderer::TextureHandle SpriteRenderer::load_texture(const std::string_vie
 	debug_assert(!path.empty());
 	debug_assert(sampler != VK_NULL_HANDLE);
 
-	TextureData texture = TextureData::load(path.data());
+	TextureData texture{path.data()};
 	debug_assert(texture.valid());
 
 	VkExtent3D texture_extent = {static_cast<u32>(texture.width), static_cast<u32>(texture.height), 1};
@@ -68,7 +67,8 @@ SpriteRenderer::TextureHandle SpriteRenderer::load_texture(const std::string_vie
 		.format = VK_FORMAT_R8G8B8A8_SRGB,
 	});
 	debug_assert(image.valid());
-	Vk::write_device_local_image(image, texture.pixels, texture_extent, 4, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	Vk::write_device_local_image(image, texture.pixels.get(), texture_extent, 4,
+								 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	VkDescriptorSet set = m_descriptor_pool.allocate_set();
 	debug_assert(set != VK_NULL_HANDLE);
